@@ -27,6 +27,9 @@ def write_data(data):
         json.dump(data, f, indent=4)
 
 class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
+    extensions_map = http.server.SimpleHTTPRequestHandler.extensions_map.copy()
+    extensions_map['.css'] = 'text/css'
+    
     
     def do_GET(self):
         parsed_path = urlparse(self.path)
