@@ -2,16 +2,24 @@ import http.server
 import socketserver
 import json
 import os
+import csv
+from datetime import datetime
 from urllib.parse import urlparse
 
 PORT = int(os.environ.get("PORT", 8000))
 DATA_FILE = 'data.json'
+CSV_FILE = 'reports.csv'
 
 # Initialize Data File
 def init_data_file():
     if not os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'w', encoding='utf-8') as f:
             json.dump([], f)
+    
+    if not os.path.exists(CSV_FILE):
+        with open(CSV_FILE, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['id', 'location', 'wasteType', 'description', 'status', 'date'])
 
 init_data_file()
 
@@ -60,6 +68,18 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             complaints = read_data()
             complaints.append(new_complaint)
             write_data(complaints)
+            
+            # Save to CSV
+            with open(CSV_FILE, 'a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    new_complaint.get('id', ''),
+                    new_complaint.get('location', ''),
+                    new_complaint.get('wasteType', ''),
+                    new_complaint.get('description', ''),
+                    new_complaint.get('status', 'pending'),
+                    new_complaint.get('date', datetime.now().isoformat())
+                ])
             
             self.send_response(201)
             self.send_header('Content-type', 'application/json')
