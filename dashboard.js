@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusFilter = document.getElementById('status-filter');
     const pendingCountEl = document.getElementById('pending-count');
     const resolvedCountEl = document.getElementById('resolved-count');
+    const exportCsvBtn = document.getElementById('export-csv-btn');
     
     // Modal elements
     const modal = document.getElementById('image-modal');
@@ -18,6 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const loginError = document.getElementById('login-error');
 
     let allComplaints = [];
+    let wasteTypeChartInstance = null;
+    let timelineChartInstance = null;
 
     // Check login state
     const isLoggedIn = sessionStorage.getItem('isAdminLoggedIn') === 'true';
@@ -55,11 +58,79 @@ document.addEventListener('DOMContentLoaded', () => {
             allComplaints = await response.json();
             renderComplaints();
             updateStats();
+            renderCharts();
         } catch (error) {
             console.error('Error loading complaints:', error);
             // Optionally handle UI state for error
             allComplaints = [];
             renderComplaints();
+            renderCharts();
+        }
+    }
+
+    function renderCharts() {
+        if (typeof Chart === 'undefined') return;
+        
+        const wasteTypes = {};
+        const datesCount = {};
+        
+        allComplaints.forEach(c => {
+            const wType = c.wasteType || 'Not Specified';
+            wasteTypes[wType] = (wasteTypes[wType] || 0) + 1;
+            
+            const dateStr = new Date(c.date).toLocaleDateString();
+            datesCount[dateStr] = (datesCount[dateStr] || 0) + 1;
+        });
+
+        const wtCtx = document.getElementById('wasteTypeChart');
+        if (wtCtx) {
+            if (wasteTypeChartInstance) wasteTypeChartInstance.destroy();
+            wasteTypeChartInstance = new Chart(wtCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(wasteTypes),
+                    datasets: [{
+                        data: Object.values(wasteTypes),
+                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#94a3b8'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { color: '#f8fafc' } } }
+                }
+            });
+        }
+
+        const tlCtx = document.getElementById('timelineChart');
+        if (tlCtx) {
+            if (timelineChartInstance) timelineChartInstance.destroy();
+            
+            const sortedDates = Object.keys(datesCount).sort((a,b) => new Date(a) - new Date(b));
+            const dataValues = sortedDates.map(d => datesCount[d]);
+
+            timelineChartInstance = new Chart(tlCtx, {
+                type: 'bar',
+                data: {
+                    labels: sortedDates,
+                    datasets: [{
+                        label: 'Reports Filed',
+                        data: dataValues,
+                        backgroundColor: '#3b82f6',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1, color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
         }
     }
 
@@ -113,7 +184,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     </svg>
                     <span>${comp.location}</span>
                 </div>
-                <div class="complaint-desc">
+                ${comp.wasteType ? `
+                <div class="complaint-waste-type" style="margin-top: 8px; margin-bottom: 12px; display: inline-flex; align-items: center; background: rgba(16, 185, 129, 0.1); color: var(--success-color); padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: 500;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px;">
+                        <path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                    ${comp.wasteType}
+                </div>` : ''}
+                <div class="complaint-desc" style="${!comp.wasteType ? 'margin-top: 12px;' : 'margin-top: 0px;'}">
                     ${comp.description || 'No additional details provided.'}
                 </div>
                 <div class="complaint-actions">
@@ -192,4 +270,53 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners for filters
     searchInput.addEventListener('input', renderComplaints);
     statusFilter.addEventListener('change', renderComplaints);
+
+    // Export to CSV functionality
+    if (exportCsvBtn) {
+        exportCsvBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (allComplaints.length === 0) {
+                alert('No data available to export.');
+                return;
+            }
+
+            // Define CSV headers
+            const headers = ['ID', 'Date', 'Location', 'Waste Type', 'Description', 'Status'];
+            
+            // Map data to CSV rows
+            const csvRows = allComplaints.map(comp => {
+                const dateObj = new Date(comp.date);
+                const formattedDate = dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                // Escape quotes and wrap in quotes for safety
+                const escapeCSV = (str) => {
+                    if (!str) return '""';
+                    return '"' + str.toString().replace(/"/g, '""') + '"';
+                };
+
+                return [
+                    escapeCSV(comp.id),
+                    escapeCSV(formattedDate),
+                    escapeCSV(comp.location),
+                    escapeCSV(comp.wasteType || 'Not Specified'),
+                    escapeCSV(comp.description || ''),
+                    escapeCSV(comp.status.toUpperCase())
+                ].join(',');
+            });
+
+            // Combine headers and rows
+            const csvContent = headers.join(',') + '\n' + csvRows.join('\n');
+            
+            // Create a Blob and trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `eco_report_data_${new Date().getTime()}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+    }
 });

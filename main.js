@@ -5,8 +5,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const imagePreview = document.getElementById('image-preview');
     const successMessage = document.getElementById('success-message');
     const newReportBtn = document.getElementById('new-report-btn');
+    const geoBtn = document.getElementById('geo-btn');
+    const locationInput = document.getElementById('location');
 
     let currentImageDataUrl = null;
+
+    // Handle Geolocation
+    if (geoBtn) {
+        geoBtn.addEventListener('click', () => {
+            if (navigator.geolocation) {
+                geoBtn.innerHTML = '<span style="font-size: 12px;">...</span>';
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lon = position.coords.longitude;
+                        locationInput.value = `Lat: ${lat.toFixed(5)}, Lon: ${lon.toFixed(5)}`;
+                        geoBtn.innerHTML = `
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--success-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        `;
+                    },
+                    (error) => {
+                        alert('Unable to retrieve your location. Please enter it manually.');
+                        geoBtn.innerHTML = `
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                            </svg>
+                        `;
+                    }
+                );
+            } else {
+                alert('Geolocation is not supported by your browser.');
+            }
+        });
+    }
 
     // Handle drag and drop for file upload
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -75,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const location = document.getElementById('location').value;
+        const wasteType = document.getElementById('waste-type').value;
         const description = document.getElementById('description').value;
 
         const submitBtn = document.getElementById('submit-btn');
@@ -84,6 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newComplaint = {
             id: 'COMP-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
             location: location,
+            wasteType: wasteType,
             description: description,
             image: currentImageDataUrl,
             status: 'pending',
