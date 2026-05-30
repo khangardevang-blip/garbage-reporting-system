@@ -38,6 +38,9 @@ class CustomHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     extensions_map = http.server.SimpleHTTPRequestHandler.extensions_map.copy()
     extensions_map['.css'] = 'text/css'
     
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=os.path.join(os.path.dirname(__file__), '..', 'frontend'), **kwargs)
+    
     
     def do_GET(self):
         parsed_path = urlparse(self.path)
