@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Load complaints from API
     async function loadComplaints() {
         try {
-            const response = await fetch('https://garbage-reporting-system-2-0.onrender.com/api/complaints');
+            const response = await fetch('/api/complaints');
             if (!response.ok) throw new Error('Failed to fetch complaints');
             allComplaints = await response.json();
             renderComplaints();

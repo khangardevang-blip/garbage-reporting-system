@@ -127,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // Save to backend API
-            const response = await fetch('https://garbage-reporting-system-2-0.onrender.com/api/complaints', {
+            const response = await fetch('/api/complaints', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
