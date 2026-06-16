@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment - LuxeHotel</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+    <a href="index.html" class="logo">LuxeHotel.</a>
+    <nav>
+        <ul>
+            <!-- Populated by auth.js -->
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <div class="glass-form" id="paymentContainer">
+        <h2 style="margin-bottom: 1rem;">Payment Details</h2>
+        <div id="bookingInfo" style="background: var(--light); padding: 1.5rem; border-radius: 8px; margin-bottom: 2rem;">
+            Loading reservation details...
+        </div>
+
+        <div id="errorAlert" class="alert alert-error" style="display: none;"></div>
+
+        <!-- Payment Simulation Form -->
+        <form id="paymentForm" style="display: none;">
+            <h3 style="margin-bottom: 1rem;">Select Payment Method</h3>
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                <label style="flex: 1; padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius); cursor: pointer; text-align: center;">
+                    <input type="radio" name="paymentMethod" value="CARD" checked style="margin-right: 0.5rem;">
+                    Credit Card
+                </label>
+                <label style="flex: 1; padding: 1rem; border: 1px solid var(--border-color); border-radius: var(--radius); cursor: pointer; text-align: center;">
+                    <input type="radio" name="paymentMethod" value="CASH" style="margin-right: 0.5rem;">
+                    Pay with Cash (At Hotel)
+                </label>
+            </div>
+
+            <div id="cardDetailsSection">
+                <div class="form-group">
+                    <label>Cardholder Name</label>
+                    <input type="text" class="form-control" placeholder="John Doe">
+                </div>
+                <div class="form-group">
+                    <label>Card Number</label>
+                    <input type="text" class="form-control" placeholder="**** **** **** ****">
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Expiry (MM/YY)</label>
+                        <input type="text" class="form-control" placeholder="MM/YY">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>CVV</label>
+                        <input type="text" class="form-control" placeholder="123">
+                    </div>
+                </div>
+            </div>
+
+            <button id="payBtn" class="btn" style="width: 100%; margin-top: 1rem;">Confirm Payment</button>
+        </form>
+    </div>
+</main>
+
+<footer>
+    <p>&copy; 2026 LuxeHotel. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+    const urlParams = new URLSearchParams(window.location.search);
+    const bookingRef = urlParams.get('ref');
+
+    if (!bookingRef) {
+        window.location.href = 'index.html';
+    }
+
+    const radios = document.querySelectorAll('input[name="paymentMethod"]');
+    const cardSection = document.getElementById('cardDetailsSection');
+    const payBtn = document.getElementById('payBtn');
+
+    radios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if (e.target.value === 'CASH') {
+                cardSection.style.display = 'none';
+                payBtn.textContent = 'Confirm Booking';
+            } else {
+                cardSection.style.display = 'block';
+                payBtn.textContent = 'Confirm Payment';
+            }
+        });
+    });
+
+    async function loadReservation() {
+        try {
+            const response = await fetch(`${API_BASE}/reservations/${bookingRef}`);
+            if (!response.ok) throw new Error('Reservation not found');
+            const reservation = await response.json();
+            
+            document.getElementById('bookingInfo').innerHTML = `
+                <p><strong>Booking Ref:</strong> <span>${reservation.bookingReference}</span></p>
+                <p><strong>Hotel:</strong> <span>${reservation.room.hotel.name}, ${reservation.room.hotel.city}</span></p>
+                <p><strong>Guest:</strong> <span>${reservation.guestName}</span></p>
+                <p><strong>Total Amount:</strong> ₹<span>${reservation.totalPrice}</span></p>
+            `;
+            document.getElementById('paymentForm').style.display = 'block';
+        } catch (error) {
+            document.getElementById('bookingInfo').innerHTML = '<span style="color:red">Error loading details. Ensure backend server is running.</span>';
+        }
+    }
+
+    document.getElementById('paymentForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const errorAlert = document.getElementById('errorAlert');
+        const selectedMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('paymentMethod', selectedMethod);
+
+            const response = await fetch(`${API_BASE}/payment/${bookingRef}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            });
+
+            if (response.ok) {
+                window.location.href = `manage.html?ref=${bookingRef}&success=true`;
+            } else {
+                const errText = await response.text();
+                errorAlert.textContent = errText;
+                errorAlert.style.display = 'block';
+            }
+        } catch (error) {
+            errorAlert.textContent = 'Network error. Could not reach the server.';
+            errorAlert.style.display = 'block';
+        }
+    });
+
+    loadReservation();
+</script>
+</body>
+</html>

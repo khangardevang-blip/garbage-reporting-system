@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Bookings - LuxeHotel</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+    <a href="index.html" class="logo">LuxeHotel.</a>
+    <nav>
+        <ul>
+            <!-- Populated by auth.js -->
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <div class="glass-form" style="max-width: 800px;">
+        <h2 style="margin-bottom: 2rem;">Manage Your Booking</h2>
+        
+        <div id="successAlert" class="alert alert-success" style="display: none;"></div>
+        <div id="errorAlert" class="alert alert-error" style="display: none;"></div>
+
+        <form id="searchForm" class="search-bar" style="margin-bottom: 2rem; box-shadow: none; border: 1px solid #e5e7eb;">
+            <div class="form-group">
+                <label for="bookingRef">Booking Reference</label>
+                <input type="text" id="bookingRef" class="form-control" placeholder="e.g. A1B2C3D4" required>
+            </div>
+            <button type="submit" class="btn">Find Booking</button>
+        </form>
+
+        <div id="reservationDetails" style="display: none;">
+            <div style="background: var(--light); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                <h3 style="margin-bottom: 1rem;">Booking Details</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;" id="detailsGrid">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button id="cancelBtn" class="btn btn-danger">Cancel Reservation</button>
+                <a id="payBtn" href="#" class="btn" style="display: none;">Complete Payment</a>
+            </div>
+        </div>
+        <div id="myBookingsSection" style="display: none; margin-top: 2rem;">
+            <h3 style="margin-bottom: 1rem; color: var(--text-main);">My Bookings</h3>
+            <div id="myBookingsList" style="display: flex; flex-direction: column; gap: 1rem;">
+                <p>Loading your bookings...</p>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <p>&copy; 2026 LuxeHotel. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialRef = urlParams.get('ref');
+    const isSuccess = urlParams.get('success');
+
+    if (isSuccess) {
+        document.getElementById('successAlert').textContent = 'Payment successful! Your booking is confirmed.';
+        document.getElementById('successAlert').style.display = 'block';
+    }
+
+    if (initialRef) {
+        document.getElementById('bookingRef').value = initialRef;
+        loadReservation(initialRef);
+    }
+
+    document.getElementById('searchForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const ref = document.getElementById('bookingRef').value;
+        loadReservation(ref);
+    });
+
+
+
+    async function loadMyBookings(email) {
+        const myBookingsList = document.getElementById('myBookingsList');
+        try {
+            const response = await fetch(`${API_BASE}/reservations/user/${email}`);
+            if (response.ok) {
+                const reservations = await response.json();
+                
+                if (reservations.length === 0) {
+                    myBookingsList.innerHTML = '<p>You have no bookings.</p>';
+                    return;
+                }
+
+                myBookingsList.innerHTML = '';
+                reservations.forEach(r => {
+                    const statusHtml = r.paid ? '<span style="color:var(--success); font-weight:bold;">Paid</span>' : '<span style="color:var(--accent); font-weight:bold;">Pending</span>';
+                    const div = document.createElement('div');
+                    div.style.padding = '1rem';
+                    div.style.border = '1px solid var(--border-color)';
+                    div.style.borderRadius = 'var(--radius)';
+                    div.style.background = 'rgba(255,255,255,0.5)';
+                    div.innerHTML = `
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <strong>${r.room.hotel.name}, ${r.room.hotel.city}</strong>
+                            <span style="font-family: monospace; color: var(--primary);">Ref: ${r.bookingReference}</span>
+                        </div>
+                        <p style="font-size: 0.9rem; margin-bottom: 0.5rem; color: var(--text-muted);">
+                            ${r.checkInDate} to ${r.checkOutDate} | ${r.room.type}
+                        </p>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: bold; color: var(--accent);">₹${r.totalPrice}</span>
+                            <span>${statusHtml}</span>
+                        </div>
+                        <button onclick="loadReservation('${r.bookingReference}')" class="btn" style="margin-top: 0.5rem; padding: 0.3rem 0.6rem; font-size: 0.85rem;">View Full Details</button>
+                    `;
+                    myBookingsList.appendChild(div);
+                });
+            } else {
+                myBookingsList.innerHTML = '<span style="color:red">Failed to load your bookings.</span>';
+            }
+        } catch (error) {
+            myBookingsList.innerHTML = '<span style="color:red">Network error.</span>';
+        }
+    };
+
+    async function loadReservation(ref) {
+        const errorAlert = document.getElementById('errorAlert');
+        const detailsContainer = document.getElementById('reservationDetails');
+        errorAlert.style.display = 'none';
+
+        try {
+            const response = await fetch(`${API_BASE}/reservations/${ref}`);
+            if (response.ok) {
+                const reservation = await response.json();
+                
+                const statusHtml = reservation.paid 
+                    ? `<span style="color: var(--secondary); font-weight: bold;">Confirmed & Paid</span>`
+                    : `<span style="color: #EF4444; font-weight: bold;">Pending Payment</span>`;
+
+                document.getElementById('detailsGrid').innerHTML = `
+                    <p><strong>Reference:</strong> <span>${reservation.bookingReference}</span></p>
+                    <p><strong>Status:</strong> ${statusHtml}</p>
+                    <p><strong>Guest Name:</strong> <span>${reservation.guestName}</span></p>
+                    <p><strong>Age:</strong> <span>${reservation.age}</span></p>
+                    <p><strong>Aadhaar No:</strong> <span>${reservation.aadhaarNumber}</span></p>
+                    <p><strong>Total Guests:</strong> <span>${reservation.familyMembers}</span></p>
+                    <p><strong>Add-ons:</strong> <span style="color:var(--primary); font-weight:bold;">${reservation.selectedAddons || 'None'}</span></p>
+                    <p><strong>Payment Method:</strong> <span>${reservation.paymentMethod || 'N/A'}</span></p>
+                    <p><strong>Hotel:</strong> <span>${reservation.room.hotel.name}, ${reservation.room.hotel.city}</span></p>
+                    <p><strong>Room:</strong> <span>${reservation.room.type} ${reservation.room.roomNumber}</span></p>
+                    <p><strong>Check-In:</strong> <span>${reservation.checkInDate}</span></p>
+                    <p><strong>Check-Out:</strong> <span>${reservation.checkOutDate}</span></p>
+                    <p><strong>Total Price:</strong> ₹<span>${reservation.totalPrice}</span></p>
+                `;
+
+                const payBtn = document.getElementById('payBtn');
+                if (!reservation.paid) {
+                    payBtn.href = `payment.html?ref=${reservation.bookingReference}`;
+                    payBtn.style.display = 'inline-block';
+                } else {
+                    payBtn.style.display = 'none';
+                }
+
+                document.getElementById('cancelBtn').onclick = () => cancelReservation(reservation.bookingReference);
+
+                detailsContainer.style.display = 'block';
+            } else {
+                detailsContainer.style.display = 'none';
+                errorAlert.textContent = 'No reservation found with that reference.';
+                errorAlert.style.display = 'block';
+            }
+        } catch (error) {
+            detailsContainer.style.display = 'none';
+            errorAlert.textContent = 'Error loading details. Ensure backend server is running.';
+            errorAlert.style.display = 'block';
+        }
+    }
+
+    async function cancelReservation(ref) {
+        if (!confirm('Are you sure you want to cancel this reservation?')) return;
+
+        const errorAlert = document.getElementById('errorAlert');
+        const successAlert = document.getElementById('successAlert');
+        
+        try {
+            const response = await fetch(`${API_BASE}/cancel/${ref}`, { method: 'POST' });
+            if (response.ok) {
+                document.getElementById('reservationDetails').style.display = 'none';
+                successAlert.textContent = 'Reservation cancelled successfully.';
+                successAlert.style.display = 'block';
+                errorAlert.style.display = 'none';
+            } else {
+                const errText = await response.text();
+                errorAlert.textContent = errText;
+                errorAlert.style.display = 'block';
+                successAlert.style.display = 'none';
+            }
+        } catch (error) {
+            errorAlert.textContent = 'Network error. Could not reach the server.';
+            errorAlert.style.display = 'block';
+            successAlert.style.display = 'none';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const user = getCurrentUser();
+        if (user) {
+            document.getElementById('myBookingsSection').style.display = 'block';
+            loadMyBookings(user.email);
+        }
+    });
+</script>
+</body>
+</html>

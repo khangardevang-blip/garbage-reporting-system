@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Room - LuxeHotel</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+    <a href="index.html" class="logo">LuxeHotel.</a>
+    <nav>
+        <ul>
+            <!-- Populated by auth.js -->
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <div class="glass-form" id="bookingContainer">
+        <h2 style="margin-bottom: 1rem;">Complete Your Booking</h2>
+        <div id="roomInfo" style="margin-bottom: 2rem; color: var(--text-muted);">
+            Loading room details...
+        </div>
+
+        <div id="errorAlert" class="alert alert-error" style="display: none;"></div>
+
+        <form id="bookingForm" style="display: none;">
+            <div class="form-group">
+                <label for="guestName">Full Name</label>
+                <input type="text" id="guestName" class="form-control" required placeholder="John Doe">
+            </div>
+            <div class="form-group">
+                <label for="guestEmail">Email Address</label>
+                <input type="email" id="guestEmail" class="form-control" required placeholder="john@example.com">
+            </div>
+            <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="flex: 1;">
+                    <label for="age" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-main);">Age</label>
+                    <input type="number" id="age" class="form-control" required min="18" max="120" placeholder="e.g. 30">
+                </div>
+                <div style="flex: 2;">
+                    <label for="aadhaarNumber" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-main);">Aadhaar Number</label>
+                    <input type="text" id="aadhaarNumber" class="form-control" required pattern="\d{12}" title="12 digit Aadhaar Number" placeholder="123456789012">
+                </div>
+                <div style="flex: 1;">
+                    <label for="familyMembers" style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-main);">Total Guests</label>
+                    <input type="number" id="familyMembers" class="form-control" required min="1" max="10" value="1">
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="checkIn">Check-In</label>
+                    <input type="date" id="checkIn" class="form-control" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="checkOut">Check-Out</label>
+                    <input type="date" id="checkOut" class="form-control" required>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-top: 1rem;">
+                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: var(--text-main);">Premium Add-ons</label>
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="airportPickup" class="addon-checkbox" data-type="flat" data-price="2000"> 
+                        Airport Chauffeur Pickup (₹2000 flat)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="spaPackage" class="addon-checkbox" data-type="flat" data-price="4500"> 
+                        Luxury Spa Package (₹4500 flat)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="dailyBreakfast" class="addon-checkbox" data-type="daily" data-price="1000"> 
+                        Gourmet Breakfast (₹1000 / day)
+                    </label>
+                </div>
+            </div>
+
+            <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(0,0,0,0.03); border-radius: var(--radius); text-align: center;">
+                <h3 style="color: var(--primary);">Estimated Total: <span id="estimatedTotal">₹0</span></h3>
+            </div>
+            
+            <div style="margin-top: 1rem;">
+                <button type="submit" class="btn" style="width: 100%;">Proceed to Payment</button>
+            </div>
+        </form>
+    </div>
+</main>
+
+<footer>
+    <p>&copy; 2026 LuxeHotel. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get('roomId');
+
+    if (!roomId) {
+        window.location.href = 'index.html';
+    }
+
+    let currentRoomPrice = 0;
+
+    async function loadRoom() {
+        try {
+            const response = await fetch(`${API_BASE}/rooms/${roomId}`);
+            if (!response.ok) throw new Error('Room not found');
+            const room = await response.json();
+            currentRoomPrice = room.pricePerNight;
+            
+            document.getElementById('roomInfo').innerHTML = `
+                You are booking <strong>${room.type} Room ${room.roomNumber}</strong> at <strong>${room.hotel.name}, ${room.hotel.city}</strong>.<br>
+                Base Rate: ₹<span>${room.pricePerNight}</span> per night.
+            `;
+            document.getElementById('bookingForm').style.display = 'block';
+            
+           
+            const user = getCurrentUser();
+            if (user) {
+                document.getElementById('guestName').value = user.name;
+                document.getElementById('guestEmail').value = user.email;
+            }
+        } catch (error) {
+            document.getElementById('roomInfo').innerHTML = '<span style="color:red">Error loading room details. Ensure backend server is running.</span>';
+        }
+    }
+
+    document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const guestName = document.getElementById('guestName').value;
+        const guestEmail = document.getElementById('guestEmail').value;
+        const age = document.getElementById('age').value;
+        const aadhaarNumber = document.getElementById('aadhaarNumber').value;
+        const familyMembers = document.getElementById('familyMembers').value;
+        const checkIn = document.getElementById('checkIn').value;
+        const checkOut = document.getElementById('checkOut').value;
+        const errorAlert = document.getElementById('errorAlert');
+
+        const airportPickup = document.getElementById('airportPickup').checked;
+        const spaPackage = document.getElementById('spaPackage').checked;
+        const dailyBreakfast = document.getElementById('dailyBreakfast').checked;
+
+        const formData = new URLSearchParams();
+        formData.append('guestName', guestName);
+        formData.append('guestEmail', guestEmail);
+        formData.append('age', age);
+        formData.append('aadhaarNumber', aadhaarNumber);
+        formData.append('familyMembers', familyMembers);
+        formData.append('checkIn', checkIn);
+        formData.append('checkOut', checkOut);
+        formData.append('airportPickup', airportPickup);
+        formData.append('spaPackage', spaPackage);
+        formData.append('dailyBreakfast', dailyBreakfast);
+
+        try {
+            const response = await fetch(`${API_BASE}/book/${roomId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            });
+
+            if (response.ok) {
+                const reservation = await response.json();
+                window.location.href = `payment.html?ref=${reservation.bookingReference}`;
+            } else {
+                const errText = await response.text();
+                errorAlert.textContent = errText;
+                errorAlert.style.display = 'block';
+            }
+        } catch (error) {
+            errorAlert.textContent = 'Network error. Could not reach the server.';
+            errorAlert.style.display = 'block';
+        }
+    });
+
+    function calculateLivePrice() {
+        const checkIn = document.getElementById('checkIn').value;
+        const checkOut = document.getElementById('checkOut').value;
+        let days = 0;
+
+        if (checkIn && checkOut) {
+            const inDate = new Date(checkIn);
+            const outDate = new Date(checkOut);
+            const timeDiff = outDate.getTime() - inDate.getTime();
+            days = Math.ceil(timeDiff / (1000 * 3600 * 24));
+        }
+
+        if (days <= 0) {
+            document.getElementById('estimatedTotal').textContent = '₹0';
+            return;
+        }
+
+        let total = currentRoomPrice * days;
+
+        document.querySelectorAll('.addon-checkbox').forEach(cb => {
+            if (cb.checked) {
+                const price = parseFloat(cb.dataset.price);
+                if (cb.dataset.type === 'flat') {
+                    total += price;
+                } else if (cb.dataset.type === 'daily') {
+                    total += (price * days);
+                }
+            }
+        });
+
+        document.getElementById('estimatedTotal').textContent = '₹' + total;
+    }
+
+    
+    document.getElementById('checkIn').addEventListener('change', function() {
+        document.getElementById('checkOut').min = this.value;
+        calculateLivePrice();
+    });
+    
+    document.getElementById('checkOut').addEventListener('change', calculateLivePrice);
+    
+    document.querySelectorAll('.addon-checkbox').forEach(cb => {
+        cb.addEventListener('change', calculateLivePrice);
+    });
+
+    loadRoom();
+</script>
+</body>
+</html>

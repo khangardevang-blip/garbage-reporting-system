@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - LuxeHotel</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+    <a href="index.html" class="logo">LuxeHotel.</a>
+    <nav>
+        <ul>
+            <!-- Populated by auth.js -->
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <h2 style="text-align: center; margin-bottom: 2rem;">Admin Dashboard</h2>
+
+    <div class="glass-form" style="max-width: 1000px; margin: 0 auto 2rem auto;">
+        <h3 style="margin-bottom: 1rem;">Registered Users</h3>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 1rem;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color); text-align: left;">
+                        <th style="padding: 0.5rem;">ID</th>
+                        <th style="padding: 0.5rem;">Name</th>
+                        <th style="padding: 0.5rem;">Email</th>
+                        <th style="padding: 0.5rem;">Role</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    <tr><td colspan="4" style="text-align:center; padding: 1rem;">Loading users...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="glass-form" style="max-width: 1000px; margin: 0 auto 2rem auto;">
+        <h3 style="margin-bottom: 1rem;">Payment & Reservation History</h3>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 1rem;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color); text-align: left;">
+                        <th style="padding: 0.5rem;">Ref</th>
+                        <th style="padding: 0.5rem;">Guest</th>
+                        <th style="padding: 0.5rem;">Room</th>
+                        <th style="padding: 0.5rem;">Add-ons</th>
+                        <th style="padding: 0.5rem;">Total Price</th>
+                        <th style="padding: 0.5rem;">Method</th>
+                        <th style="padding: 0.5rem;">Status</th>
+                        <th style="padding: 0.5rem;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="reservationsTableBody">
+                    <tr><td colspan="8" style="text-align:center; padding: 1rem;">Loading reservations...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</main>
+
+<footer>
+    <p>&copy; 2026 LuxeHotel. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const user = getCurrentUser();
+        if (!user || user.role !== 'ADMIN') {
+            alert('Access Denied. Admins only.');
+            window.location.href = 'index.html';
+            return;
+        }
+
+        loadUsers();
+        loadReservations();
+    });
+
+    async function loadUsers() {
+        try {
+            const response = await fetch(`${API_BASE}/admin/users`);
+            const users = await response.json();
+            const tbody = document.getElementById('usersTableBody');
+            tbody.innerHTML = '';
+            
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 1rem;">No users found.</td></tr>';
+                return;
+            }
+
+            users.forEach(u => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--border-color)';
+                tr.innerHTML = `
+                    <td style="padding: 0.5rem;">${u.id}</td>
+                    <td style="padding: 0.5rem;">${u.name}</td>
+                    <td style="padding: 0.5rem;">${u.email}</td>
+                    <td style="padding: 0.5rem;">${u.role}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            document.getElementById('usersTableBody').innerHTML = '<tr><td colspan="4" style="text-align:center; padding: 1rem; color: red;">Failed to load users.</td></tr>';
+        }
+    }
+
+    async function loadReservations() {
+        try {
+            const response = await fetch(`${API_BASE}/admin/reservations`);
+            const reservations = await response.json();
+            const tbody = document.getElementById('reservationsTableBody');
+            tbody.innerHTML = '';
+            
+            if (reservations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 1rem;">No reservations found.</td></tr>';
+                return;
+            }
+
+            reservations.forEach(r => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid var(--border-color)';
+                const statusHtml = r.paid ? '<span style="color:var(--success); font-weight:bold;">Paid</span>' : '<span style="color:var(--accent); font-weight:bold;">Pending</span>';
+                
+                const actionButton = r.paid 
+                    ? `<button onclick="toggleReservationStatus(${r.id}, false)" class="btn btn-secondary" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">Mark Pending</button>`
+                    : `<button onclick="toggleReservationStatus(${r.id}, true)" class="btn" style="padding: 0.2rem 0.5rem; font-size: 0.8rem;">Mark Paid</button>`;
+
+                tr.innerHTML = `
+                    <td style="padding: 0.5rem;">${r.bookingReference}</td>
+                    <td style="padding: 0.5rem;">${r.guestName}</td>
+                    <td style="padding: 0.5rem;">${r.room.type} - ${r.room.hotel.city}</td>
+                    <td style="padding: 0.5rem; color:var(--primary); font-size:0.85rem;">${r.selectedAddons || 'None'}</td>
+                    <td style="padding: 0.5rem;">₹${r.totalPrice}</td>
+                    <td style="padding: 0.5rem; font-size:0.9rem;">${r.paymentMethod}</td>
+                    <td style="padding: 0.5rem;">${statusHtml}</td>
+                    <td style="padding: 0.5rem;">${actionButton}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch (error) {
+            document.getElementById('reservationsTableBody').innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 1rem; color: red;">Failed to load reservations.</td></tr>';
+        }
+    }
+
+    async function toggleReservationStatus(id, isPaid) {
+        if (!confirm(`Are you sure you want to mark this reservation as ${isPaid ? 'Paid' : 'Pending'}?`)) return;
+        
+        try {
+            const response = await fetch(`${API_BASE}/admin/reservations/${id}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ isPaid: isPaid })
+            });
+
+            if (response.ok) {
+                loadReservations();
+            } else {
+                alert('Failed to update status.');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error updating status.');
+        }
+    }
+</script>
+</body>
+</html>

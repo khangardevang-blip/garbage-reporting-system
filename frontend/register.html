@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - LuxeHotel</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+    <a href="index.html" class="logo">LuxeHotel.</a>
+    <nav>
+        <ul>
+            <!-- Populated by auth.js -->
+        </ul>
+    </nav>
+</header>
+
+<main>
+    <div class="glass-form" id="registerContainer">
+        <h2 style="margin-bottom: 2rem;">Create an Account</h2>
+        <div id="errorAlert" class="alert alert-error" style="display: none;"></div>
+        
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="name">Full Name</label>
+                <input type="text" id="name" class="form-control" required placeholder="John Doe">
+            </div>
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" class="form-control" required placeholder="john@example.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" class="form-control" required placeholder="••••••••">
+            </div>
+            <button type="submit" class="btn" style="width: 100%; margin-top: 1rem;">Register</button>
+        </form>
+        <p style="margin-top: 1.5rem; text-align: center;">Already have an account? <a href="login.html" style="color: var(--primary); text-decoration: none; font-weight: bold;">Login here</a></p>
+    </div>
+</main>
+
+<footer>
+    <p>&copy; 2026 LuxeHotel. All rights reserved.</p>
+</footer>
+
+<script src="js/auth.js"></script>
+<script>
+    const API_BASE = 'http://localhost:8080/api';
+
+    document.getElementById('registerForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const errorAlert = document.getElementById('errorAlert');
+
+        const formData = new URLSearchParams();
+        formData.append('name', document.getElementById('name').value);
+        formData.append('email', document.getElementById('email').value);
+        formData.append('password', document.getElementById('password').value);
+
+        try {
+            const response = await fetch(`${API_BASE}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            });
+
+            if (response.ok) {
+                const user = await response.json();
+                loginUser(user);
+                window.location.href = 'index.html';
+            } else {
+                const errText = await response.text();
+                errorAlert.textContent = errText;
+                errorAlert.style.display = 'block';
+            }
+        } catch (error) {
+            errorAlert.textContent = 'Network error. Could not reach the server.';
+            errorAlert.style.display = 'block';
+        }
+    });
+</script>
+</body>
+</html>
